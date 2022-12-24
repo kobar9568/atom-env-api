@@ -1,8 +1,16 @@
 #include <M5Atom.h>
+#include <WiFi.h>
+#include <WebServer.h>
 #include <Adafruit_SGP30.h>
+#include <ssid_define.h>
 
 Adafruit_SGP30 sgp30;
 long last_millis = 0;
+// char ssid[33] = "INSERT_SSID_HERE";
+// char psk[65] = "INSERT_PSK_HERE";
+WebServer webServer(80);
+
+void handleRequest(void);
 
 void setup() {
     M5.begin(true, false, true);
@@ -15,6 +23,20 @@ void setup() {
         Serial.print("Failed connect to SGP30.\n");
         while(1);
     }
+
+    // WiFi.begin(ssid, psk);
+    WiFi.begin(MY_SSID, MY_PSK);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+
+    Serial.println();
+    Serial.print("IPv4: ");
+    Serial.println(WiFi.localIP());
+
+    webServer.on("/", HTTP_GET, handleRequest);
+    webServer.begin();
 
     Serial.print("Startup complete.\n");
 }
@@ -36,5 +58,21 @@ void loop() {
 
     Serial.printf("TVOC:%d ppb\n",sgp30.TVOC);
     Serial.printf("eCO2:%d ppm\n",sgp30.eCO2);
+
+    webServer.handleClient();
+
     delay(500);
+}
+
+void handleRequest(void) {
+    String buf = "";
+
+    buf += "{\"TVOC\":";
+    buf += sgp30.TVOC;
+    buf += ",";
+    buf += "\"eCO2\":";
+    buf += sgp30.eCO2;
+    buf += "}";
+
+    webServer.send(200, "application/json", buf);
 }
